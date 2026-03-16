@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Face Recognition{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="hero-text">
+        <h1>AI-Powered Employee <span>Check-In</span></h1>
+        <p>Seamlessly mark your attendance using facial recognition. Fast, secure, and integrated directly into Google Sheets.</p>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    
+    <!-- Camera Section -->
+    <div class="card glass-panel upload-card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h2><i data-lucide="camera"></i> Verify Identity</h2>
+                <p>Position your face in the frame</p>
+            </div>
+            <button type="button" id="switchCameraBtn" class="btn-icon header-action" title="Switch Camera">
+                <i data-lucide="switch-camera"></i>
+            </button>
+        </div>
+        
+        {% if not model_exists %}
+        <div class="alert alert-warning">
+            <i data-lucide="alert-triangle"></i>
+            <div>
+                <strong>Model not trained!</strong>
+                <p>Please <a href="{{ url_for('train') }}">upload a dataset ZIP</a> to train the model first.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <form id="uploadForm" class="upload-area" {% if not model_exists %}style="pointer-events:none; opacity:0.5;"{% endif %}>
+            <!-- Hidden inputs for legacy/fallback support if needed, but primary is canvas blob -->
+            <input type="file" id="fileInput" name="photo" accept="image/*" hidden capture="user">
+            
+            <!-- Live Camera Feed -->
+            <div id="cameraContainer" class="camera-container">
+                <video id="cameraWebcam" autoplay playsinline muted></video>
+                <!-- Initial camera loading state -->
+                <div id="cameraLoading" class="camera-loading">
+                    <i data-lucide="loader" class="spin"></i>
+                    <p>Starting camera...</p>
+                </div>
+                <!-- Camera Error state -->
+                <div id="cameraError" class="camera-error hidden">
+                    <i data-lucide="camera-off"></i>
+                    <p>Camera access denied or unavailable</p>
+                    <button type="button" class="btn btn-sm mt-2" onclick="document.getElementById('fileInput').click()">Upload File Instead</button>
+                </div>
+            </div>
+
+            <!-- Hidden canvas to capture frames -->
+            <canvas id="cameraCanvas" hidden></canvas>
+
+            <!-- Captured Image Preview (Hidden initially) -->
+            <div id="previewContainer" class="preview-container hidden">
+                <img id="imagePreview" src="" alt="Captured Photo">
+                <button type="button" id="removePhotoBtn" class="btn-icon">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-block mt-4" disabled>
+                <i data-lucide="scan"></i> Scan Face
+            </button>
+        </form>
+    </div>
+
+    <!-- Result / Status Section -->
+    <div class="card glass-panel result-card">
+        <div class="card-header">
+            <h2><i data-lucide="activity"></i> Match Analytics</h2>
+        </div>
+
+        <div id="loadingState" class="state-container hidden">
+            <div class="scanner-anim">
+                <div class="scanner-line"></div>
+                <i data-lucide="scan-face" class="scan-icon"></i>
+            </div>
+            <p>Analysing facial biometrics...</p>
+        </div>
+
+        <div id="idleState" class="state-container">
+            <div class="illustration">
+                <i data-lucide="camera" class="idle-icon"></i>
+            </div>
+            <p class="text-muted">Awaiting photo upload.</p>
+        </div>
+
+        <div id="resultState" class="result-details hidden">
+            <div class="match-profile">
+                <div class="profile-avatar">
+                    <img id="resPreviewImage" src="" alt="Uploaded">
+                    <div id="matchBadge" class="match-badge badge-success">
+                        <i data-lucide="check"></i>
+                    </div>
+                </div>
+                <div>
+                    <h3 id="resName">John Doe</h3>
+                    <span id="resConfidence" class="confidence-text">98.5% Match</span>
+                </div>
+            </div>
+
+            <div class="attendance-summary mt-4">
+                <div class="stat-box">
+                    <span class="stat-label">Action</span>
+                    <strong id="resAction" class="status-chip in">Check-In</strong>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Time</span>
+                    <strong id="resTime">09:00 AM</strong>
+                </div>
+            </div>
+
+            <div id="resMessage" class="alert alert-success mt-4"></div>
+            
+            <div id="syncStatus" class="sync-status">
+                <i data-lucide="cloud-off"></i> <span>Google Sheets: Pending</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Logs{% endblock %}
+
+{% block content %}
+<div class="header-action">
+    <div class="section-title">
+        <h1><i data-lucide="calendar-days"></i> Attendance Ledger</h1>
+        <p>Live feed of employee check-ins and check-outs.</p>
+    </div>
+    <div class="date-filter">
+        <span>Today: <strong>{{ today }}</strong></span>
+    </div>
+</div>
+
+<div class="card glass-panel mt-4">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th><i data-lucide="user"></i> Employee</th>
+                    <th><i class="table-icon" data-lucide="calendar"></i> Date</th>
+                    <th><i class="table-icon" data-lucide="log-in"></i> Check-In</th>
+                    <th><i class="table-icon" data-lucide="log-out"></i> Check-Out</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in records %}
+                <tr>
+                    <td>
+                        <div class="emp-name">
+                            <i data-lucide="circle-user"></i>
+                            <strong>{{ row['Employee Name'] }}</strong>
+                        </div>
+                    </td>
+                    <td>{{ row['Date'] }}</td>
+                    <td>
+                        <span class="time-badge in"><i data-lucide="clock"></i> {{ row['Check-In Time'] }}</span>
+                    </td>
+                    <td>
+                        {% if row.get('Check-Out Time') %}
+                        <span class="time-badge out"><i data-lucide="clock"></i> {{ row['Check-Out Time'] }}</span>
+                        {% else %}
+                        <span class="text-muted">--:--:--</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.get('Check-Out Time') %}
+                            <span class="badge badge-success">Completed</span>
+                        {% else %}
+                            <span class="badge badge-warning">Active</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem;">
+                        <i data-lucide="inbox" style="width:48px; height:48px; color:var(--text-muted);"></i>
+                        <p class="mt-4">No attendance records found.</p>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

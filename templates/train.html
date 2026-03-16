@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Train Model{% endblock %}
+
+{% block content %}
+<div class="section-title">
+    <h1><i data-lucide="cpu"></i> Model Training</h1>
+    <p>Upload a ZIP file containing folders of employee photos to train the recognition network.</p>
+</div>
+
+<div class="card glass-panel max-w-lg mx-auto mt-4">
+    <div class="card-header">
+        <h2>Dataset Upload</h2>
+    </div>
+
+    <div class="info-box">
+        <h4><i data-lucide="info"></i> Folder Structure</h4>
+        <p>The uploaded ZIP file <strong>must</strong> be structured with one folder per employee:</p>
+        <pre>
+dataset.zip
+├── Alice_Smith/
+│   ├── img1.jpg
+│   └── img2.jpg
+└── Bob_Jones/
+    └── img1.jpg
+        </pre>
+    </div>
+
+    <form action="{{ url_for('train') }}" method="POST" enctype="multipart/form-data" class="mt-4">
+        <div class="form-group">
+            <label for="dataset" class="form-label">Dataset ZIP File</label>
+            <input type="file" id="dataset" name="dataset" accept=".zip" class="form-control" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-block mt-4" onclick="this.innerHTML='<i data-lucide=\'loader\' class=\'spin\'></i> Training in progress...'; this.style.opacity='0.8';">
+            <i data-lucide="play"></i> Start Training
+        </button>
+    </form>
+</div>
+{% endblock %}
