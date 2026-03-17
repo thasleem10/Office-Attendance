@@ -1,12 +1,8 @@
 flask
 werkzeug
-numpy
-opencv-python-headless
 face_recognition
-dlib
 Pillow
 gspread
 google-auth
 python-dotenv
 setuptools
-gunicorn
