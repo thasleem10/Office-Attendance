@@ -1,0 +1,31 @@
+.git
+.github
+.env
+venv
+env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis
+.pytest_cache
+
+# Data and Models
+dataset/
+sample_dataset.zip
+data/
+# keep model/ folder if it has the weights
+# model/ 
+
+# OS generated files
+.DS_Store
+Thumbs.db
