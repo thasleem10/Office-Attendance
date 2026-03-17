@@ -1,7 +1,7 @@
-# Stage 1: Build stage
-FROM python:3.10-slim as builder
+# Stage 1: Build stage (The heavy lifting)
+FROM python:3.10-slim-bullseye as builder
 
-# Install system dependencies for building dlib and opencv
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -9,22 +9,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblapack-dev \
     libx11-dev \
     libgtk-3-dev \
-    python3-dev \
     && rm -rf /var/lib/apt/lists/*
-
-# Set environment variable to limit dlib compilation to 1 thread (save memory)
-ENV MAKEFLAGS="-j1"
 
 WORKDIR /build
 
-# Install requirements to a temporary directory
+# 1. Install cmake and dlib separately with EXTREME memory conservation
+# CMAKE_BUILD_PARALLEL_LEVEL=1 forces a single core for compilation
+# DLIB_NO_GUI_SUPPORT and DLIB_USE_CUDA=0 reduce the code complexity
+RUN pip install --no-cache-dir cmake
+RUN CMAKE_BUILD_PARALLEL_LEVEL=1 \
+    DLIB_USE_CUDA=0 \
+    DLIB_NO_GUI_SUPPORT=1 \
+    pip install --no-cache-dir dlib==19.24.2
+
+# 2. Install the rest of the requirements
 COPY requirements.txt .
+# Filter out dlib from requirements.txt so pip doesn't try to re-process it
+RUN sed -i '/dlib/d' requirements.txt
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# Stage 2: Runtime stage
-FROM python:3.10-slim
+# Stage 2: Runtime stage (The lightweight version)
+FROM python:3.10-slim-bullseye
 
-# Install runtime libraries needed by dlib and opencv
+# Install runtime libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenblas0 \
     liblapack3 \
@@ -41,10 +48,10 @@ COPY --from=builder /install /usr/local
 COPY . .
 
 # Ensure data and model directories exist
-RUN mkdir -p data model src/static/uploads
+RUN mkdir -p data model static/uploads
 
-# Expose the port gunicorn will run on
+# Expose port
 EXPOSE 10000
 
-# Run the application
+# Run with extra timeout for AI model loading
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--timeout", "120", "app:app"]
