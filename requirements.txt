@@ -1,8 +1,8 @@
 flask
 werkzeug
-face_recognition
 Pillow
 gspread
 google-auth
 python-dotenv
+gunicorn
 setuptools

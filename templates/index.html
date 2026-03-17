@@ -5,8 +5,8 @@
 {% block content %}
 <div class="hero-section">
     <div class="hero-text">
-        <h1>AI-Powered Employee <span>Check-In</span></h1>
-        <p>Seamlessly mark your attendance using facial recognition. Fast, secure, and integrated directly into Google Sheets.</p>
+        <h1>AI Mobile <span>Attendance</span></h1>
+        <p>Recognized locally on your device. Fast, secure, and zero-server lag.</p>
     </div>
 </div>
 
@@ -16,114 +16,290 @@
     <div class="card glass-panel upload-card">
         <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
             <div>
-                <h2><i data-lucide="camera"></i> Verify Identity</h2>
-                <p>Position your face in the frame</p>
+                <h2><i data-lucide="camera"></i> Live Verification</h2>
+                <p id="systemStatus">Initializing AI models...</p>
             </div>
             <button type="button" id="switchCameraBtn" class="btn-icon header-action" title="Switch Camera">
                 <i data-lucide="switch-camera"></i>
             </button>
         </div>
         
-        {% if not model_exists %}
-        <div class="alert alert-warning">
-            <i data-lucide="alert-triangle"></i>
-            <div>
-                <strong>Model not trained!</strong>
-                <p>Please <a href="{{ url_for('train') }}">upload a dataset ZIP</a> to train the model first.</p>
-            </div>
-        </div>
-        {% endif %}
-
-        <form id="uploadForm" class="upload-area" {% if not model_exists %}style="pointer-events:none; opacity:0.5;"{% endif %}>
-            <!-- Hidden inputs for legacy/fallback support if needed, but primary is canvas blob -->
-            <input type="file" id="fileInput" name="photo" accept="image/*" hidden capture="user">
-            
-            <!-- Live Camera Feed -->
+        <div class="upload-area">
             <div id="cameraContainer" class="camera-container">
-                <video id="cameraWebcam" autoplay playsinline muted></video>
-                <!-- Initial camera loading state -->
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="overlay" class="overlay-canvas"></canvas>
+                
                 <div id="cameraLoading" class="camera-loading">
                     <i data-lucide="loader" class="spin"></i>
-                    <p>Starting camera...</p>
-                </div>
-                <!-- Camera Error state -->
-                <div id="cameraError" class="camera-error hidden">
-                    <i data-lucide="camera-off"></i>
-                    <p>Camera access denied or unavailable</p>
-                    <button type="button" class="btn btn-sm mt-2" onclick="document.getElementById('fileInput').click()">Upload File Instead</button>
+                    <p>Loading AI Engine...</p>
                 </div>
             </div>
 
-            <!-- Hidden canvas to capture frames -->
-            <canvas id="cameraCanvas" hidden></canvas>
-
-            <!-- Captured Image Preview (Hidden initially) -->
-            <div id="previewContainer" class="preview-container hidden">
-                <img id="imagePreview" src="" alt="Captured Photo">
-                <button type="button" id="removePhotoBtn" class="btn-icon">
-                    <i data-lucide="x"></i>
+            <div class="control-panel mt-4">
+                <button id="startBtn" class="btn btn-primary btn-block" disabled>
+                    <i data-lucide="play"></i> Start Recognition
                 </button>
             </div>
-
-            <button type="submit" id="submitBtn" class="btn btn-primary btn-block mt-4" disabled>
-                <i data-lucide="scan"></i> Scan Face
-            </button>
-        </form>
+        </div>
     </div>
 
     <!-- Result / Status Section -->
     <div class="card glass-panel result-card">
         <div class="card-header">
-            <h2><i data-lucide="activity"></i> Match Analytics</h2>
-        </div>
-
-        <div id="loadingState" class="state-container hidden">
-            <div class="scanner-anim">
-                <div class="scanner-line"></div>
-                <i data-lucide="scan-face" class="scan-icon"></i>
-            </div>
-            <p>Analysing facial biometrics...</p>
+            <h2><i data-lucide="activity"></i> Recognition Log</h2>
         </div>
 
         <div id="idleState" class="state-container">
             <div class="illustration">
-                <i data-lucide="camera" class="idle-icon"></i>
+                <i data-lucide="user-check" class="idle-icon"></i>
             </div>
-            <p class="text-muted">Awaiting photo upload.</p>
+            <p class="text-muted" id="logMessage">Models loading...</p>
         </div>
 
         <div id="resultState" class="result-details hidden">
             <div class="match-profile">
                 <div class="profile-avatar">
-                    <img id="resPreviewImage" src="" alt="Uploaded">
                     <div id="matchBadge" class="match-badge badge-success">
                         <i data-lucide="check"></i>
                     </div>
                 </div>
                 <div>
-                    <h3 id="resName">John Doe</h3>
-                    <span id="resConfidence" class="confidence-text">98.5% Match</span>
+                    <h3 id="resName">Detecting...</h3>
+                    <span id="resConfidence" class="confidence-text">Scanning...</span>
                 </div>
             </div>
 
             <div class="attendance-summary mt-4">
                 <div class="stat-box">
                     <span class="stat-label">Action</span>
-                    <strong id="resAction" class="status-chip in">Check-In</strong>
+                    <strong id="resAction" class="status-chip in">-</strong>
                 </div>
                 <div class="stat-box">
-                    <span class="stat-label">Time</span>
-                    <strong id="resTime">09:00 AM</strong>
+                    <span class="stat-label">Status</span>
+                    <strong id="resStatus">Pending</strong>
                 </div>
             </div>
 
             <div id="resMessage" class="alert alert-success mt-4"></div>
-            
-            <div id="syncStatus" class="sync-status">
-                <i data-lucide="cloud-off"></i> <span>Google Sheets: Pending</span>
-            </div>
         </div>
     </div>
-
 </div>
+
+<style>
+    .camera-container {
+        position: relative;
+        overflow: hidden;
+        border-radius: 12px;
+        background: #000;
+        aspect-ratio: 4/3;
+    }
+    #video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .overlay-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+    }
+</style>
+
+<!-- Load face-api.js from CDN -->
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+
+<script>
+    const video = document.getElementById('video');
+    const systemStatus = document.getElementById('systemStatus');
+    const logMessage = document.getElementById('logMessage');
+    const startBtn = document.getElementById('startBtn');
+    const resultState = document.getElementById('resultState');
+    const idleState = document.getElementById('idleState');
+
+    let labeledFaceDescriptors = [];
+    let faceMatcher = null;
+    let isDetecting = false;
+    let currentStream = null;
+    let useFrontCamera = true;
+
+    // Model URL (using a hosted version to avoid local download issues)
+    const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model';
+
+    async function init() {
+        try {
+            logMessage.innerText = 'Loading AI Models (TinyFaceDetector, Landmarks, Recognition)...';
+            
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
+
+            logMessage.innerText = 'Models Loaded. Fetching Employee Data...';
+            await loadEmployeeData();
+
+            systemStatus.innerText = 'AI Engine Ready';
+            logMessage.innerText = 'Ready to scan employees. Position yourself in front of the camera.';
+            startBtn.disabled = false;
+            document.getElementById('cameraLoading').classList.add('hidden');
+            
+            startCamera();
+        } catch (err) {
+            console.error(err);
+            logMessage.innerText = 'Error loading AI: ' + err.message;
+        }
+    }
+
+    async function loadEmployeeData() {
+        const response = await fetch('/api/employees');
+        const employees = await response.json();
+
+        if (employees.length === 0) {
+            logMessage.innerHTML = '<strong>No employees found!</strong><br>Please go to <a href="/train">Train</a> and upload a dataset first.';
+            return;
+        }
+
+        labeledFaceDescriptors = await Promise.all(
+            employees.map(async emp => {
+                const img = await faceapi.fetchImage(emp.image);
+                const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                
+                if (!detections) {
+                    console.warn(`Could not detect face for ${emp.name}`);
+                    return null;
+                }
+                return new faceapi.LabeledFaceDescriptors(emp.name, [detections.descriptor]);
+            })
+        );
+
+        // Filter out nulls
+        labeledFaceDescriptors = labeledFaceDescriptors.filter(d => d !== null);
+        faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
+    }
+
+    async function startCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+
+        const constraints = {
+            video: {
+                facingMode: useFrontCamera ? "user" : "environment",
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        };
+
+        try {
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = currentStream;
+        } catch (err) {
+            console.error("Camera access error:", err);
+            systemStatus.innerText = 'Camera Error';
+        }
+    }
+
+    startBtn.addEventListener('click', () => {
+        if (isDetecting) {
+            isDetecting = false;
+            startBtn.innerHTML = '<i data-lucide="play"></i> Start Recognition';
+            idleState.classList.remove('hidden');
+            resultState.classList.add('hidden');
+        } else {
+            isDetecting = true;
+            startBtn.innerHTML = '<i data-lucide="stop-circle"></i> Stop Recognition';
+            idleState.classList.add('hidden');
+            resultState.classList.remove('hidden');
+            recognize();
+        }
+        lucide.createIcons();
+    });
+
+    document.getElementById('switchCameraBtn').addEventListener('click', () => {
+        useFrontCamera = !useFrontCamera;
+        startCamera();
+    });
+
+    async function recognize() {
+        if (!isDetecting) return;
+
+        const canvas = document.getElementById('overlay');
+        const displaySize = { width: video.videoWidth, height: video.videoHeight };
+        
+        if (canvas.width !== displaySize.width) {
+            canvas.width = displaySize.width;
+            canvas.height = displaySize.height;
+            faceapi.matchDimensions(canvas, displaySize);
+        }
+
+        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+
+        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+        
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        faceapi.draw.drawDetections(canvas, resizedDetections);
+
+        if (detections.length > 0) {
+            const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
+            
+            results.forEach(bestMatch => {
+                const name = bestMatch.label;
+                document.getElementById('resName').innerText = name;
+                document.getElementById('resConfidence').innerText = (bestMatch.distance * 100).toFixed(1) + '% Confidence';
+
+                if (name !== 'unknown') {
+                    // Logic to prevent multiple triggers in a row
+                    isDetecting = false;
+                    startBtn.disabled = true;
+                    logAttendance(name);
+                }
+            });
+        }
+
+        if (isDetecting) {
+            requestAnimationFrame(recognize);
+        }
+    }
+
+    async function logAttendance(name) {
+        document.getElementById('resStatus').innerText = 'Syncing...';
+        
+        try {
+            const response = await fetch('/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employee_name: name })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                document.getElementById('resAction').innerText = result.action;
+                document.getElementById('resStatus').innerText = 'Success';
+                document.getElementById('resMessage').innerText = result.message;
+                document.getElementById('resAction').className = `status-chip ${result.action.toLowerCase()}`;
+                
+                setTimeout(() => {
+                    isDetecting = false;
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i data-lucide="play"></i> Start Recognition';
+                    resultState.classList.add('hidden');
+                    idleState.classList.remove('hidden');
+                    lucide.createIcons();
+                }, 5000);
+            } else {
+                document.getElementById('resStatus').innerText = 'Failed';
+                document.getElementById('resMessage').innerText = result.error;
+                startBtn.disabled = false;
+            }
+        } catch (err) {
+            document.getElementById('resStatus').innerText = 'Network Error';
+        }
+    }
+
+    window.onload = init;
+</script>
 {% endblock %}
