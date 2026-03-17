@@ -1,9 +1,5 @@
 services:
   - type: web
     name: face-attendance-app
-    env: python
-    buildCommand: "pip install cmake && pip install -r requirements.txt"
-    startCommand: "gunicorn app:app"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.13
+    env: docker
+
