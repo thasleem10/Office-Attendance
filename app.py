@@ -178,11 +178,53 @@ def attendance_data():
 
 @app.route("/health")
 def health():
-    return jsonify({
-        "status":       "ok",
-        "timestamp":    datetime.now().isoformat(),
-    })
+    return jsonify({"status": "ok", "timestamp": datetime.now().isoformat()})
 
+@app.route("/test-sync")
+def test_sync():
+    """Manually trigger a sync test to see the error."""
+    from src.attendance_logger import _sync_checkin_to_sheets
+    success, error = _sync_checkin_to_sheets("Test_User", datetime.now().strftime("%Y-%m-%d"), "00:00:00")
+    return jsonify({"success": success, "error": error})
+
+@app.route("/debug-sheets")
+def debug_sheets():
+    """Diagnostic endpoint for Google Sheets."""
+    from config import GOOGLE_CREDENTIALS_FILE, GOOGLE_SHEET_ID, GOOGLE_SHEET_NAME
+    import json
+    
+    path = Path(GOOGLE_CREDENTIALS_FILE).absolute()
+    diag = []
+    
+    diag.append(f"Looking for: {path}")
+    
+    if not path.exists():
+        diag.append("❌ File NOT found")
+        return jsonify({"status": "error", "logs": diag})
+        
+    diag.append("✅ File exists")
+    
+    if not path.is_file():
+        diag.append("❌ Path is a directory, not a file!")
+        return jsonify({"status": "error", "logs": diag})
+    
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+            diag.append(f"✅ Read OK. Email: {data.get('client_email')}")
+            
+        from src.google_sheets_helper import append_row
+        success, error = append_row(GOOGLE_SHEET_ID, GOOGLE_SHEET_NAME, ["Debug", datetime.now().isoformat()], GOOGLE_CREDENTIALS_FILE)
+        
+        if success:
+            diag.append("✅ API CONNECTIVITY SUCCESS!")
+        else:
+            diag.append(f"❌ API FAILED: {error}")
+            
+    except Exception as e:
+        diag.append(f"❌ CRITICAL ERROR: {repr(e)}")
+        
+    return jsonify({"status": "complete", "logs": diag})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=DEBUG)

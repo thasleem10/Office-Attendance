@@ -110,7 +110,7 @@ def log_attendance(employee_name: str) -> dict:
                 break
         _write_csv_records(records)
 
-        synced = _sync_checkout_to_sheets(employee_name, today_str, time_str)
+        synced, error = _sync_checkout_to_sheets(employee_name, today_str, time_str)
 
         return {
             "action":        "check_out",
@@ -118,8 +118,9 @@ def log_attendance(employee_name: str) -> dict:
             "date":          today_str,
             "check_in":      existing["Check-In Time"],
             "check_out":     time_str,
-            "message":       f"✅ Check-Out recorded for {employee_name} at {time_str}",
+            "message":       f"✅ Check-Out recorded for {employee_name} at {time_str}" if synced else f"⚠️ Saved locally, but Sheets failed: {error}",
             "sheets_synced": synced,
+            "error":         error
         }
 
     # ── Check-In (first recognition of the day) ───────────────────────────────
@@ -134,7 +135,7 @@ def log_attendance(employee_name: str) -> dict:
     records.append(new_row)
     _write_csv_records(records)
 
-    synced = _sync_checkin_to_sheets(employee_name, today_str, time_str)
+    synced, error = _sync_checkin_to_sheets(employee_name, today_str, time_str)
 
     return {
         "action":        "check_in",
@@ -142,17 +143,18 @@ def log_attendance(employee_name: str) -> dict:
         "date":          today_str,
         "check_in":      time_str,
         "check_out":     None,
-        "message":       f"✅ Check-In recorded for {employee_name} at {time_str}",
+        "message":       f"✅ Check-In recorded for {employee_name} at {time_str}" if synced else f"⚠️ Saved locally, but Sheets failed: {error}",
         "sheets_synced": synced,
+        "error":         error
     }
 
 
 # ─── Google Sheets Sync ───────────────────────────────────────────────────────
 
-def _sync_checkin_to_sheets(employee_name: str, date: str, check_in: str) -> bool:
-    """Append a new check-in row to Google Sheets (check-out column left blank)."""
+def _sync_checkin_to_sheets(employee_name: str, date: str, check_in: str):
+    """Append a new check-in row to Google Sheets."""
     if not GOOGLE_SHEET_ID:
-        return False
+        return False, "GOOGLE_SHEET_ID not set"
     return append_row(
         sheet_id=GOOGLE_SHEET_ID,
         sheet_name=GOOGLE_SHEET_NAME,
@@ -161,15 +163,10 @@ def _sync_checkin_to_sheets(employee_name: str, date: str, check_in: str) -> boo
     )
 
 
-def _sync_checkout_to_sheets(employee_name: str, date: str, check_out: str) -> bool:
-    """
-    Update the existing Google Sheets row with check-out time.
-    This implementation appends an update marker row since the Sheets API
-    requires knowing the exact row index for in-place updates.
-    For production, consider using a Sheets cell finding approach.
-    """
+def _sync_checkout_to_sheets(employee_name: str, date: str, check_out: str):
+    """Update the existing Google Sheets row with check-out time."""
     if not GOOGLE_SHEET_ID:
-        return False
+        return False, "GOOGLE_SHEET_ID not set"
     return append_row(
         sheet_id=GOOGLE_SHEET_ID,
         sheet_name=GOOGLE_SHEET_NAME,

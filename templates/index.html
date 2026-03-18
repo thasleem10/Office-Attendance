@@ -76,7 +76,10 @@
                 </div>
                 <div class="stat-box">
                     <span class="stat-label">Status</span>
-                    <strong id="resStatus">Pending</strong>
+                    <div>
+                        <strong id="resStatus" class="badge-warning">Pending</strong>
+                        <a href="/debug-sheets" target="_blank" class="ml-2" style="font-size: 0.8rem; text-decoration: underline;">Troubleshoot</a>
+                    </div>
                 </div>
             </div>
 
@@ -278,7 +281,8 @@
             
             if (result.success) {
                 document.getElementById('resAction').innerText = result.action;
-                document.getElementById('resStatus').innerText = 'Success';
+                document.getElementById('resStatus').innerText = result.sheets_synced ? 'Synced' : 'Local Only';
+                document.getElementById('resStatus').className = result.sheets_synced ? 'badge-success' : 'badge-warning';
                 document.getElementById('resMessage').innerText = result.message;
                 document.getElementById('resAction').className = `status-chip ${result.action.toLowerCase()}`;
                 

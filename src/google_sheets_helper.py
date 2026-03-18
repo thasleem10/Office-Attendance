@@ -27,55 +27,50 @@ SCOPES = [
 
 def get_sheets_client(credentials_file: str):
     """
-    Authenticate with Google Sheets API using a Service Account JSON file.
-
-    Args:
-        credentials_file: Path to the service account credentials JSON.
-
-    Returns:
-        gspread.Client on success, or None if unavailable / auth fails.
+    Authenticate with Google Sheets API. Returns (client, error_message).
     """
     if not GSPREAD_AVAILABLE:
-        return None
+        return None, "gspread or google-auth not installed"
 
-    creds_path = Path(credentials_file)
+    creds_path = Path(credentials_file).absolute()
+    logger.info(f"Attempting to load credentials from: {creds_path}")
+    
     if not creds_path.exists():
-        logger.warning(f"Credentials file not found: {creds_path}")
-        return None
+        return None, f"Credentials file not found at: {creds_path}"
+    
+    if not creds_path.is_file():
+        return None, f"Path exists but is not a file: {creds_path}"
 
     try:
         creds  = Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
         client = gspread.authorize(creds)
-        logger.info("Google Sheets client authenticated successfully.")
-        return client
+        return client, None
     except Exception as e:
-        logger.error(f"Google Sheets authentication failed: {e}")
-        return None
+        return None, f"Auth Error: {type(e).__name__} | {repr(e)}"
 
 
-def append_row(sheet_id: str, sheet_name: str, values: list, credentials_file: str) -> bool:
+def append_row(sheet_id: str, sheet_name: str, values: list, credentials_file: str):
     """
-    Append a single row to a Google Sheet.
-
-    Args:
-        sheet_id:         The Google Spreadsheet ID (from the URL).
-        sheet_name:       Name of the worksheet tab.
-        values:           List of cell values to append.
-        credentials_file: Path to service account JSON.
-
-    Returns:
-        True on success, False on any failure.
+    Append a single row to a Google Sheet. Returns (success, error_message).
     """
-    client = get_sheets_client(credentials_file)
+    client, error = get_sheets_client(credentials_file)
     if client is None:
-        return False
+        logger.error(f"Sync failed: {error}")
+        return False, error
 
     try:
+        logger.info(f"Opening sheet ID: {sheet_id}")
         sheet    = client.open_by_key(sheet_id)
+        
+        logger.info(f"Accessing worksheet: {sheet_name}")
         worksheet = sheet.worksheet(sheet_name)
+        
+        logger.info(f"Appending values: {values}")
         worksheet.append_row(values, value_input_option="USER_ENTERED")
-        logger.info(f"Appended row to Google Sheet '{sheet_name}': {values}")
-        return True
+        
+        logger.info("Sync successful.")
+        return True, None
     except Exception as e:
-        logger.error(f"Failed to append row to Google Sheet: {e}")
-        return False
+        error_msg = f"API Error Type: {type(e).__name__} | Details: {repr(e)}"
+        logger.error(f"Sync failed: {error_msg}")
+        return False, error_msg
