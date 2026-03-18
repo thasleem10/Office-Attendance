@@ -222,13 +222,7 @@ def debug_sheets():
             diag.append(f"❌ API FAILED: {error}")
             
     except Exception as e:
-        import traceback
         diag.append(f"❌ CRITICAL ERROR: {repr(e)}")
-        diag.append(f"Traceback: {traceback.format_exc()}")
-        
-    import os
-    diag.append(f"CWD: {os.getcwd()}")
-    diag.append(f"User: {os.getlogin() if hasattr(os, 'getlogin') else 'unknown'}")
         
     return jsonify({"status": "complete", "logs": diag})
 
